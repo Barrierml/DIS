@@ -1,0 +1,5 @@
+.history
+*.pyc
+.DS_Store
+model/*
+*.pth

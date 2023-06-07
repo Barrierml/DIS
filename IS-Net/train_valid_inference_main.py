@@ -661,15 +661,15 @@ if __name__ == "__main__":
                  "cache_dir":"../DIS5K-Cache/DIS-TE4"}
     ### test your own dataset
     dataset_demo = {"name": "your-dataset",
-                 "im_dir": "../your-dataset/im",
-                 "gt_dir": "",
-                 "im_ext": ".jpg",
-                 "gt_ext": "",
-                 "cache_dir":"../your-dataset/cache"}
+                 "im_dir": "../demo_datasets/your-dataset",
+                 "gt_dir": "../demo_datasets/your-dataset_result",
+                 "im_ext": ".jpeg",
+                 "gt_ext": ".png",
+                 "cache_dir":"../demo_datasets/cache"}
 
-    train_datasets = [dataset_tr] ## users can create mutiple dictionary for setting a list of datasets as training set
+    train_datasets = [dataset_demo] ## users can create mutiple dictionary for setting a list of datasets as training set
     # valid_datasets = [dataset_vd] ## users can create mutiple dictionary for setting a list of datasets as vaidation sets or inference sets
-    valid_datasets = [dataset_vd] # dataset_vd, dataset_te1, dataset_te2, dataset_te3, dataset_te4] # and hypar["mode"] = "valid" for inference,
+    valid_datasets = [dataset_demo] # dataset_vd, dataset_te1, dataset_te2, dataset_te3, dataset_te4] # and hypar["mode"] = "valid" for inference,
 
     ### --------------- STEP 2: Configuring the hyperparamters for Training, validation and inferencing ---------------
     hypar = {}
@@ -685,7 +685,7 @@ if __name__ == "__main__":
     if hypar["mode"] == "train":
         hypar["valid_out_dir"] = "" ## for "train" model leave it as "", for "valid"("inference") mode: set it according to your local directory
         hypar["model_path"] ="../saved_models/IS-Net-test" ## model weights saving (or restoring) path
-        hypar["restore_model"] = "" ## name of the segmentation model weights .pth for resume training process from last stop or for the inferencing
+        hypar["restore_model"] = "isnet.pth" ## name of the segmentation model weights .pth for resume training process from last stop or for the inferencing
         hypar["start_ite"] = 0 ## start iteration for the training, can be changed to match the restored training process
         hypar["gt_encoder_model"] = ""
     else: ## configure the segmentation output path and the to-be-used model weights path
