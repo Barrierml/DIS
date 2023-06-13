@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .models.ddnet import DD_Net_Fuse, DD_Net_Single, DD_Net_RC
+from .models import DD_Net_Fuse, DD_Net_Single, DD_Net_RC
 import torch.nn.functional as F
 import os
 from PIL import Image
@@ -66,7 +66,7 @@ class Image_Dataset(torch.utils.data.Dataset):
         img = torch.divide(img,255.0)
         return img, gt
 
-net = DD_Net_RC()
+net = DD_Net_Single()
 # 加载预训练好的模型
 # net.load_state_dict(torch.load('./dd-net-ended.pth'))
 # print('load pretrained model')
@@ -84,24 +84,20 @@ gt_transform = transforms.Compose([
 ])
 
 # 加载数据集
-train_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-TR/im', '/root/DIS/DIS5K/DIS-TR/gt', image_transform, gt_transform, name='train')
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=8, shuffle=True)
+train_dataset = Image_Dataset('/root/DIS/ay-item-data/train/im', '/root/DIS/ay-item-data/train/gt', image_transform, gt_transform, name='train')
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=10, shuffle=True)
 
 # 验证集
-val_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-VD/im', '/root/DIS/DIS5K/DIS-VD/gt', image_transform, gt_transform, name='val')
+val_dataset = Image_Dataset('/root/DIS/ay-item-data/val/im', '/root/DIS/ay-item-data/val/gt', image_transform, gt_transform, name='val')
 val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
 
-# 测试集
-# test_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-TE1/im', '/root/DIS/DIS5K/DIS-TE1/gt', image_transform, gt_transform, name='test')
-# test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=8, shuffle=True)
-
-
 # 训练
-def train(net, train_loader, optimizer, epoch):
+def train(net, train_loader, optimizer, epoch, iter=0):
     net.train()
     average_loss = 0
     start_time = time.time()
     for i, (img, gt) in enumerate(train_loader):
+        iter += 1
         img = img.cuda()
         gt = gt.cuda()
         pred = net(img)
@@ -111,10 +107,10 @@ def train(net, train_loader, optimizer, epoch):
         loss.backward()
         optimizer.step()
         # 打印每个训练的 loss 与当前 epoch 的进度
-        print('epoch: {}, iter: {}, percent: {:.2f}%, loss: {}, cost_time: {:.6f}'.format(epoch, i, i / len(train_loader) * 100, loss.item(), time.time() - start_time))
+        print('epoch: {}, iter: {}, percent: {:.2f}%, loss: {}, cost_time: {:.6f}'.format(epoch, iter, i / len(train_loader) * 100, loss.item(), time.time() - start_time))
         start_time = time.time()
     print('epoch: {}, average loss: {}'.format(epoch, average_loss / len(train_loader)))
-    return average_loss / len(train_loader)
+    return average_loss / len(train_loader), iter
 
 # 验证
 def val(net, val_loader):
@@ -144,22 +140,39 @@ current_epoch = 0
 
 losses = []
 val_losses = []
-
+iter = 0
 
 for epoch in range(current_epoch, epochs+1):
-    train_loss = train(net, train_loader, optimizer, epoch)
-    v_loss = val(net, val_loader)
+    train_loss, iter = train(net, train_loader, optimizer, epoch, iter=iter)
     losses.append(train_loss)
-    val_losses.append(v_loss)
     current_epoch += 1
-    # 每过 30 个 epoch 保存一次模型
-    if epoch % 30 == 0:
+    v_loss = 0
+    if iter % 1000 == 0:
+        v_loss = val(net, val_loader)
+        val_losses.append(v_loss)
+    if iter % 2000 == 0:
         print('保存模型中')
-        torch.save(net.state_dict(), './dd-net-{}-{}-{.6f}-{.6f}-{.6f}.pth'.format(epoch, net.__class__.__name__, train_loss, v_loss, time.time()))
+        torch.save(net.state_dict(), './dd-net-{}-{}-{}-{.6f}-{.6f}-{.6f}.pth'.format(epoch, net.__class__.__name__, iter, train_loss, v_loss, time.time()))
     if check_early_stopping(val_losses, 30):
         print("连续 30 epoch 没有任何提升，退出")
         torch.save(net.state_dict(), './dd-net-ended.pth')
         break
-        
-torch.save(net.state_dict(), './dd-net-current3.pth')
+
+# 测试
+def test(net, test_loader):
+    net.eval()
+    loss_sum = 0
+    for j, (img, gt) in enumerate(test_loader):
+        img = img.cuda()
+        gt = gt.cuda()
+        pred = net(img)
+        loss = net.loss(pred, gt)
+        loss_sum += loss.item()
+    print('test loss: {}'.format(loss_sum / len(test_loader)))
+    return loss_sum / len(test_loader)
+
+
+# 测试集
+# test_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-TE/im', '/root/DIS/DIS5K/DIS-TE/gt', image_transform, gt_transform, name='test')
+# test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
 # test(net, test_loader)

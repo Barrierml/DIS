@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .models.ddnet import DD_Net_Fuse, DD_Net_Single, DD_Net_RC
+from models import DD_Net_Fuse, DD_Net_Single, DD_Net_RC
 import torch.nn.functional as F
 import os
 from PIL import Image
