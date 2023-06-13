@@ -9,7 +9,7 @@ import random
 from copy import deepcopy
 import json
 from tqdm import tqdm
-from skimage import io
+from skimage import io, color
 import os
 from glob import glob
 
@@ -107,6 +107,9 @@ def im_preprocess(im,size):
         im = im[:, :, np.newaxis]
     if im.shape[2] == 1:
         im = np.repeat(im, 3, axis=2)
+    # 如果是4通道则转换为3通
+    if im.shape[2] == 4:
+        im = color.rgba2rgb(im)
     im_tensor = torch.tensor(im.copy(), dtype=torch.float32)
     im_tensor = torch.transpose(torch.transpose(im_tensor,1,2),0,1)
     if(len(size)<2):

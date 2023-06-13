@@ -633,8 +633,8 @@ class DD_Net_Single(nn.Module):
         return F.sigmoid(d1)
 
     # 定义损失函数
-    def loss(self, pred, gt):
-        return bce_loss(pred, gt)
+    def compute_loss(self, pred, gt):
+        return muti_loss_fusion(pred, gt)
 
 # 使用合并在一起的特征图
 class DD_Net_Fuse(nn.Module):
@@ -663,9 +663,8 @@ class DD_Net_Fuse(nn.Module):
         return F.sigmoid(d1)
 
     # 定义损失函数
-    def loss(self, pred, gt):
-        return bce_loss(pred, gt)
-
+    def compute_loss(self, pred, gt):
+        return muti_loss_fusion(pred, gt)
 # DD-Net = Double Dis
 # AVE = Average
 # 两个 IS-Net_DIS 处理完毕后，求平均
@@ -681,8 +680,8 @@ class DD_Net_AVE(nn.Module):
         return F.sigmoid((d0 + dis_res) / 2)
 
     # 定义损失函数
-    def loss(self, pred, gt):
-        return bce_loss(pred, gt)
+    def compute_loss(self, pred, gt):
+        return muti_loss_fusion(pred, gt)
 
 # rc = Residual Connection 
 # isnet + isgt
@@ -702,5 +701,5 @@ class DD_Net_RC(nn.Module):
         return self.gt_outer(d1)
 
     # 定义损失函数
-    def loss(self, pred, gt):
-        return bce_loss(pred, gt)
+    def compute_loss(self, pred, gt):
+        return muti_loss_fusion(pred, gt)

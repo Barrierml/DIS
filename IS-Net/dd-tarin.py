@@ -85,7 +85,7 @@ gt_transform = transforms.Compose([
 
 # 加载数据集
 train_dataset = Image_Dataset('/root/DIS/ay-item-data/train/im', '/root/DIS/ay-item-data/train/gt', image_transform, gt_transform, name='train')
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=10, shuffle=True)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=5, shuffle=True)
 
 # 验证集
 val_dataset = Image_Dataset('/root/DIS/ay-item-data/val/im', '/root/DIS/ay-item-data/val/gt', image_transform, gt_transform, name='val')
@@ -147,10 +147,10 @@ for epoch in range(current_epoch, epochs+1):
     losses.append(train_loss)
     current_epoch += 1
     v_loss = 0
-    if iter % 1000 == 0:
+    if epoch % 2 == 0:
         v_loss = val(net, val_loader)
         val_losses.append(v_loss)
-    if iter % 2000 == 0:
+    if epoch % 3 == 0:
         print('保存模型中')
         torch.save(net.state_dict(), './dd-net-{}-{}-{}-{.6f}-{.6f}-{.6f}.pth'.format(epoch, net.__class__.__name__, iter, train_loss, v_loss, time.time()))
     if check_early_stopping(val_losses, 30):
