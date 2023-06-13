@@ -348,15 +348,9 @@ def train(net, optimizer, train_dataloaders, train_datasets, valid_dataloaders, 
             start_inf_loss_back = time.time()
             optimizer.zero_grad()
 
-            if hypar["interm_sup"]:
-                # forward + backward + optimize
-                ds,dfs = net(inputs_v)
-                _,fs = featurenet(labels_v) ## extract the gt encodings
-                loss2, loss = net.compute_loss_kl(ds, labels_v, dfs, fs, mode='MSE')
-            else:
-                # forward + backward + optimize
-                ds,_ = net(inputs_v)
-                loss2, loss = net.compute_loss(ds, labels_v)
+            # forward + backward + optimize
+            ds = [net(inputs_v)]
+            loss2, loss = net.compute_loss(ds, labels_v)
 
             loss.backward()
             optimizer.step()
@@ -367,7 +361,7 @@ def train(net, optimizer, train_dataloaders, train_datasets, valid_dataloaders, 
 
             # del outputs, loss
             del ds, loss2, loss
-            end_inf_loss_back = time.time()-start_inf_loss_back
+            end_inf_loss_back = time.time() - start_inf_loss_back
 
             print(">>>"+model_path.split('/')[-1]+" - [epoch: %3d/%3d, batch: %5d/%5d, ite: %d] train loss: %3f, tar: %3f, time-per-iter: %3f s, time_read: %3f" % (
             epoch + 1, epoch_num, (i + 1) * batch_size_train, train_num, ite_num, running_loss / ite_num4val, running_tar_loss / ite_num4val, time.time()-start_last, time.time()-start_last-end_inf_loss_back))
@@ -459,7 +453,7 @@ def valid(net, valid_dataloaders, valid_datasets, hypar, epoch=0):
                 inputs_val_v, labels_val_v = Variable(inputs_val, requires_grad=False), Variable(labels_val,requires_grad=False)
 
             t_start = time.time()
-            ds_val = net(inputs_val_v)[0]
+            ds_val = [net(inputs_val_v)]
             t_end = time.time()-t_start
             tmp_time.append(t_end)
 
@@ -660,16 +654,23 @@ if __name__ == "__main__":
                  "gt_ext": ".png",
                  "cache_dir":"../DIS5K-Cache/DIS-TE4"}
     ### test your own dataset
-    dataset_demo = {"name": "your-dataset",
-                 "im_dir": "../demo_datasets/your-dataset",
-                 "gt_dir": "../demo_datasets/your-dataset_result",
-                 "im_ext": ".jpeg",
+    dataset_demo = {"name": "ay-data",
+                 "im_dir": "/root/DIS/ay-item-data/train/im",
+                 "gt_dir": "/root/DIS/ay-item-data/train/gt",
+                 "im_ext": ".jpg",
                  "gt_ext": ".png",
-                 "cache_dir":"../demo_datasets/cache"}
+                 "cache_dir":"/root/autodl-tmp/cache/train"}
+    
+    dataset_val_demo = {"name": "ay-data",
+                 "im_dir": "/root/DIS/ay-item-data/val/im",
+                 "gt_dir": "/root/DIS/ay-item-data/val/gt",
+                 "im_ext": ".jpg",
+                 "gt_ext": ".png",
+                 "cache_dir":"/root/autodl-tmp/cache/val"}
 
     train_datasets = [dataset_demo] ## users can create mutiple dictionary for setting a list of datasets as training set
     # valid_datasets = [dataset_vd] ## users can create mutiple dictionary for setting a list of datasets as vaidation sets or inference sets
-    valid_datasets = [dataset_demo] # dataset_vd, dataset_te1, dataset_te2, dataset_te3, dataset_te4] # and hypar["mode"] = "valid" for inference,
+    valid_datasets = [dataset_val_demo] # dataset_vd, dataset_te1, dataset_te2, dataset_te3, dataset_te4] # and hypar["mode"] = "valid" for inference,
 
     ### --------------- STEP 2: Configuring the hyperparamters for Training, validation and inferencing ---------------
     hypar = {}
@@ -684,13 +685,13 @@ if __name__ == "__main__":
 
     if hypar["mode"] == "train":
         hypar["valid_out_dir"] = "" ## for "train" model leave it as "", for "valid"("inference") mode: set it according to your local directory
-        hypar["model_path"] ="../saved_models/IS-Net-test" ## model weights saving (or restoring) path
-        hypar["restore_model"] = "isnet.pth" ## name of the segmentation model weights .pth for resume training process from last stop or for the inferencing
+        hypar["model_path"] ="../saved_models" ## model weights saving (or restoring) path
+        hypar["restore_model"] = "" ## name of the segmentation model weights .pth for resume training process from last stop or for the inferencing
         hypar["start_ite"] = 0 ## start iteration for the training, can be changed to match the restored training process
         hypar["gt_encoder_model"] = ""
     else: ## configure the segmentation output path and the to-be-used model weights path
         hypar["valid_out_dir"] = "../your-results/"##"../DIS5K-Results-test" ## output inferenced segmentation maps into this fold
-        hypar["model_path"] = "../saved_models/IS-Net" ## load trained weights from this path
+        hypar["model_path"] = "../saved_models" ## load trained weights from this path
         hypar["restore_model"] = "isnet.pth"##"isnet.pth" ## name of the to-be-loaded weights
 
     # if hypar["restore_model"]!="":
@@ -715,11 +716,11 @@ if __name__ == "__main__":
 
     ## --- 2.5. define model  ---
     print("building model...")
-    hypar["model"] = DD_Net() #U2NETFASTFEATURESUP()
+    hypar["model"] = DD_Net_Single() #U2NETFASTFEATURESUP()
     hypar["early_stop"] = 20 ## stop the training when no improvement in the past 20 validation periods, smaller numbers can be used here e.g., 5 or 10.
     hypar["model_save_fre"] = 2000 ## valid and save model weights every 2000 iterations
 
-    hypar["batch_size_train"] = 8 ## batch size for training
+    hypar["batch_size_train"] = 4 ## batch size for training
     hypar["batch_size_valid"] = 1 ## batch size for validation and inferencing
     print("batch size: ", hypar["batch_size_train"])
 

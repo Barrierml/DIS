@@ -74,22 +74,17 @@ print('Total params: %.2fM' % (sum(p.numel() for p in net.parameters())/1000000.
 
 image_transform = transforms.Compose([
     transforms.Resize((1024, 1024)),
+    transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5,0.5,0.5],std=[0.5,0.5,0.5]),
-])
-# 图像分割处理
-gt_transform = transforms.Compose([
-    transforms.Resize((1024, 1024)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5,0.5,0.5],std=[0.5,0.5,0.5]),
+    transforms.Normalize(mean=[0.5,0.5,0.5],std=[1,1,1]),
 ])
 
 # 加载数据集
-train_dataset = Image_Dataset('/root/DIS/ay-item-data/train/im', '/root/DIS/ay-item-data/train/gt', image_transform, gt_transform, name='train')
+train_dataset = Image_Dataset('/root/DIS/ay-item-data/train/im', '/root/DIS/ay-item-data/train/gt', image_transform, name='train')
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=8, shuffle=True)
 
 # 验证集
-val_dataset = Image_Dataset('/root/DIS/ay-item-data/val/im', '/root/DIS/ay-item-data/val/gt', image_transform, gt_transform, name='val')
+val_dataset = Image_Dataset('/root/DIS/ay-item-data/val/im', '/root/DIS/ay-item-data/val/gt', image_transform, name='val')
 val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
 
 # 训练
