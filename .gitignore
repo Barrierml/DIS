@@ -3,3 +3,5 @@
 .DS_Store
 model/*
 *.pth
+DIS5K
+DIS5K.zip

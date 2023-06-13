@@ -528,7 +528,7 @@ class ISNetDIS(nn.Module):
         self.side5 = nn.Conv2d(512,out_ch,3,padding=1)
         self.side6 = nn.Conv2d(512,out_ch,3,padding=1)
 
-        # self.outconv = nn.Conv2d(6*out_ch,out_ch,1)
+        self.outconv = nn.Conv2d(6*out_ch,out_ch,1)
 
     def compute_loss_kl(self, preds, targets, dfs, fs, mode='MSE'):
 
@@ -606,6 +606,25 @@ class ISNetDIS(nn.Module):
         d6 = self.side6(hx6)
         d6 = _upsample_like(d6,x)
 
-        # d0 = self.outconv(torch.cat((d1,d2,d3,d4,d5,d6),1))
+        d0 = self.outconv(torch.cat((d1,d2,d3,d4,d5,d6),1))
 
-        return [d1, d2, d3, d4, d5, d6]
+        return d0
+
+    
+
+# 创建一个模型以 ISNetDIS 为 backbone
+class DD_Net(nn.Module):
+    def __init__(self, out_ch=1):
+        super(DD_Net, self).__init__()
+        self.dis_model = ISNetDIS()
+        self.dd_model = ISNetDIS(in_ch=2)
+        self.conv2one = nn.Conv2d(3, 1, 1)
+
+    def forward(self, x):
+        dis_res = self.dis_model(x)
+        d1 = torch.cat(list(dis_res, ), dim=1)
+        return self.dd_model(d1)
+
+    # 定义损失函数
+    def loss(self, pred, gt):
+        return bce_loss(pred, gt)

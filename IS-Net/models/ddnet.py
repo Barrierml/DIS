@@ -608,4 +608,99 @@ class ISNetDIS(nn.Module):
 
         # d0 = self.outconv(torch.cat((d1,d2,d3,d4,d5,d6),1))
 
-        return [d1, d2, d3, d4, d5, d6]
+        return [d1,d2,d3,d4,d5,d6]
+
+    
+
+# DD-Net = Double Dis
+# 两个 IS-Net_DIS 模型线形拼接处理两次
+# 只使用最后一层的特征图
+class DD_Net_Single(nn.Module):
+    def __init__(self, out_ch=1):
+        super(DD_Net_Single, self).__init__()
+        self.dis_model = ISNetDIS()
+        self.dd_model = ISNetDIS(in_ch=2)
+        self.conv2one = nn.Conv2d(3, out_ch, 1)
+
+    def forward(self, x):
+        dis_res = self.dis_model(x)[0]
+        
+        d0 = self.conv2one(x)
+
+        d1 = torch.cat([d0, dis_res], dim=1)
+        d1 = self.dd_model(d1)[0]
+        
+        return F.sigmoid(d1)
+
+    # 定义损失函数
+    def loss(self, pred, gt):
+        return bce_loss(pred, gt)
+
+# 使用合并在一起的特征图
+class DD_Net_Fuse(nn.Module):
+    def __init__(self, out_ch=1):
+        super(DD_Net_Fuse, self).__init__()
+        self.dis_model = ISNetDIS()
+        self.dd_model = ISNetDIS(in_ch=2)
+        
+        self.conv2one = nn.Conv2d(3, out_ch, 1)
+        self.outconv = nn.Conv2d(6*out_ch,out_ch,1)
+
+        self.dis_outconv = nn.Conv2d(6*out_ch,out_ch,1)
+        self.dd_outconv = nn.Conv2d(6*out_ch,out_ch,1)
+
+    def forward(self, x):
+        dis_res = self.dis_model(x)
+        dis_res = torch.cat(list(dis_res), dim=1)
+        dis_res = self.dis_outconv(dis_res)
+        
+        d0 = self.conv2one(x)
+
+        d1 = torch.cat([d0, dis_res], dim=1)
+        d1 = self.dd_model(d1)
+        d1 = torch.cat(list(d1), dim=1)
+        d1 = self.dd_outconv(d1)
+        return F.sigmoid(d1)
+
+    # 定义损失函数
+    def loss(self, pred, gt):
+        return bce_loss(pred, gt)
+
+# DD-Net = Double Dis
+# AVE = Average
+# 两个 IS-Net_DIS 处理完毕后，求平均
+class DD_Net_AVE(nn.Module):
+    def __init__(self, out_ch=1):
+        super(DD_Net_AVE, self).__init__()
+        self.dis_model = ISNetDIS()
+        self.dd_model = ISNetDIS()
+
+    def forward(self, x):
+        dis_res = self.dis_model(x)
+        d0 = self.dd_model(x)
+        return F.sigmoid((d0 + dis_res) / 2)
+
+    # 定义损失函数
+    def loss(self, pred, gt):
+        return bce_loss(pred, gt)
+
+# rc = Residual Connection 
+# isnet + isgt
+# 6 个特征图 与 原图 拼接
+class DD_Net_RC(nn.Module):
+    def __init__(self, out_ch=1):
+        super(DD_Net_RC, self).__init__()
+        self.dis_model = ISNetDIS()
+        self.gt_outer = ISNetGTEncoder(in_ch=9, out_ch=out_ch)
+
+    def forward(self, x):
+        # 将输出出来的 6 个特征图拼接卷积起来
+        dis_res = self.dis_model(x)
+        d1 = torch.cat(list(dis_res), dim=1)
+        # 带上原图再拼起来
+        d1 = torch.cat([*list(dis_res), x], dim=1)
+        return self.gt_outer(d1)
+
+    # 定义损失函数
+    def loss(self, pred, gt):
+        return bce_loss(pred, gt)
