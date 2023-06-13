@@ -46,9 +46,8 @@ class Image_Dataset(torch.utils.data.Dataset):
                 os.mkdir(self.base_cache_dir)
             if not os.path.exists(os.path.join(self.base_cache_dir, filename.replace('.jpg', '.pt'))):
                 img = Image.open(os.path.join(self.img_dir, filename))
-                img = img.convert('RGB')
-                img = np.array(img)
-                img, _ = im_preprocess(img, (1024, 1024))
+                if self.img_transform:
+                    img = self.img_transform(img)
                 torch.save(img, os.path.join(self.base_cache_dir, filename.replace('.jpg', '.pt')))
                 # 将图片保存为 pt 文件提高读取速度
                 gt = Image.open(os.path.join(self.gt_dir, filename.replace('.jpg', '.png')))
@@ -76,16 +75,18 @@ print('Total params: %.2fM' % (sum(p.numel() for p in net.parameters())/1000000.
 image_transform = transforms.Compose([
     transforms.Resize((1024, 1024)),
     transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5,0.5,0.5],std=[0.5,0.5,0.5]),
 ])
 # 图像分割处理
 gt_transform = transforms.Compose([
     transforms.Resize((1024, 1024)),
     transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5,0.5,0.5],std=[0.5,0.5,0.5]),
 ])
 
 # 加载数据集
 train_dataset = Image_Dataset('/root/DIS/ay-item-data/train/im', '/root/DIS/ay-item-data/train/gt', image_transform, gt_transform, name='train')
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=5, shuffle=True)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=8, shuffle=True)
 
 # 验证集
 val_dataset = Image_Dataset('/root/DIS/ay-item-data/val/im', '/root/DIS/ay-item-data/val/gt', image_transform, gt_transform, name='val')
@@ -150,9 +151,9 @@ for epoch in range(current_epoch, epochs+1):
     if epoch % 2 == 0:
         v_loss = val(net, val_loader)
         val_losses.append(v_loss)
-    if epoch % 3 == 0:
+    if epoch % 4 == 0:
         print('保存模型中')
-        torch.save(net.state_dict(), './dd-net-{}-{}-{}-{.6f}-{.6f}-{.6f}.pth'.format(epoch, net.__class__.__name__, iter, train_loss, v_loss, time.time()))
+        torch.save(net.state_dict(), './dd-net-{}-{}-{}-{:.6f}-{:.6f}-{:.6f}.pth'.format(epoch, net.__class__.__name__, iter, train_loss, v_loss, time.time()))
     if check_early_stopping(val_losses, 30):
         print("连续 30 epoch 没有任何提升，退出")
         torch.save(net.state_dict(), './dd-net-ended.pth')
