@@ -100,7 +100,7 @@ train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=8, shuffle=
 
 # 定义验证集
 val_dataset = DepthDataset(depth_dir=base_dir + 'test/depth', gt_dir=base_dir + 'test/gt', depth_transform=depth_transform, gt_transform=gt_transform)
-val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=8, shuffle=False)
+val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
 
 device = 'cuda'
 
