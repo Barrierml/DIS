@@ -608,4 +608,4 @@ class ISNetDIS(nn.Module):
 
         # d0 = self.outconv(torch.cat((d1,d2,d3,d4,d5,d6),1))
 
-        return [d1, d2, d3, d4, d5, d6]
+        return [F.sigmoid(d1), F.sigmoid(d2), F.sigmoid(d3), F.sigmoid(d4), F.sigmoid(d5), F.sigmoid(d6)],[hx1d,hx2d,hx3d,hx4d,hx5d,hx6]

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models import ISNetDIS, ISNetGTEncoder
+from .models.ddnet import DD_Net_Fuse, DD_Net_Single, DD_Net_RC
 import torch.nn.functional as F
 import os
 from PIL import Image
@@ -14,39 +14,6 @@ kl_loss = nn.KLDivLoss(size_average=True)
 l1_loss = nn.L1Loss(size_average=True)
 smooth_l1_loss = nn.SmoothL1Loss(size_average=True)
 bce_loss = nn.BCELoss(size_average=True)
-
-class DepthDataset(torch.utils.data.Dataset):
-    def __init__(self, depth_dir, gt_dir, depth_transform=None, gt_transform=None):
-        self.depth_dir = depth_dir
-        self.gt_dir = gt_dir
-        self.depth_transform = depth_transform
-        self.gt_transform = gt_transform
-        self.filenames = os.listdir(depth_dir)
-        # 将所有的图片提前处理并保存为 pt 文件, 保存到 cache 文件夹下
-        for filename in tqdm.tqdm(self.filenames):
-            # 创建 cache 文件夹
-            if not os.path.exists('./cache'):
-                os.mkdir('./cache')
-            if not os.path.exists(os.path.join('./cache', filename.replace('.jpg', '.pt'))):
-                depth = Image.open(os.path.join(self.depth_dir, filename))
-                depth = depth.convert('RGB')
-                if self.depth_transform:
-                    depth = self.depth_transform(depth)
-                torch.save(depth, os.path.join('./cache', filename.replace('.jpg', '.pt')))
-            
-
-    def __len__(self):
-        return len(self.filenames)
-
-    def __getitem__(self, idx):
-        depth = Image.open(os.path.join(self.depth_dir, self.filenames[idx]))
-        gt = Image.open(os.path.join(self.gt_dir, self.filenames[idx].replace('.jpg', '.png')))
-        depth = depth.convert('RGB')
-        if self.depth_transform:
-            depth = self.depth_transform(depth)
-        if self.gt_transform:
-            gt = self.gt_transform(gt)
-        return depth, gt
 
 def im_preprocess(im,size):
     if len(im.shape) < 3:
@@ -99,46 +66,12 @@ class Image_Dataset(torch.utils.data.Dataset):
         img = torch.divide(img,255.0)
         return img, gt
 
-# 创建一个模型以 ISNetDIS 为 backbone
-class DD_Net(nn.Module):
-    def __init__(self, out_ch=1, pretrained=True):
-        super(DD_Net, self).__init__()
-        self.dis_model = ISNetDIS()
-        # 冻结 backbone 的参数
-        # for param in self.dis_model.parameters():
-        #     param.requires_grad = False
-
-        self.gt_outer = ISNetGTEncoder(in_ch=9, out_ch=out_ch)
-
-    def forward(self, x):
-        # 将输出出来的 6 个特征图拼接卷积起来
-        dis_res = self.dis_model(x)
-        d1 = torch.cat(list(dis_res), dim=1)
-        # 带上原图再拼起来
-        d1 = torch.cat([*list(dis_res), x], dim=1)
-        return self.gt_outer(d1)
-
-    # # 加载预训练好的骨架模型
-    # def load_pretrained(self, path):
-    #     self.dis_model.load_state_dict(torch.load(path))
-
-    # 定义损失函数
-    def loss(self, pred, gt):
-        return bce_loss(pred, gt)
-
-net = DD_Net()
-# net.load_pretrained('./isnet-general-use.pth')
+net = DD_Net_RC()
 # 加载预训练好的模型
-net.load_state_dict(torch.load('./dd-net-ended.pth'))
+# net.load_state_dict(torch.load('./dd-net-ended.pth'))
+# print('load pretrained model')
 net.cuda()
-# 打印网路的结构与计算参数量
-# print(net)
 print('Total params: %.2fM' % (sum(p.numel() for p in net.parameters())/1000000.0))
-
-# 测试输入与输出
-x = torch.randn(1, 3, 1024, 1024).cuda()
-y = net(x)
-print(y.shape)
 
 image_transform = transforms.Compose([
     transforms.Resize((1024, 1024)),
@@ -152,11 +85,11 @@ gt_transform = transforms.Compose([
 
 # 加载数据集
 train_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-TR/im', '/root/DIS/DIS5K/DIS-TR/gt', image_transform, gt_transform, name='train')
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=6, shuffle=True)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=8, shuffle=True)
 
 # 验证集
 val_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-VD/im', '/root/DIS/DIS5K/DIS-VD/gt', image_transform, gt_transform, name='val')
-val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=4, shuffle=False)
+val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
 
 # 测试集
 # test_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-TE1/im', '/root/DIS/DIS5K/DIS-TE1/gt', image_transform, gt_transform, name='test')
@@ -196,40 +129,13 @@ def val(net, val_loader):
     print('val loss: {}'.format(loss_sum / len(val_loader)))
     return loss_sum / len(val_loader)
 
-
-# 测试
-def test(net, test_loader):
-    net.eval()
-    loss_sum = 0
-    for j, (img, gt) in enumerate(test_loader):
-        img = img.cuda()
-        gt = gt.cuda()
-        pred = net(img)
-        loss = net.loss(pred, gt)
-        loss_sum += loss.item()
-    print('test loss: {}'.format(loss_sum / len(test_loader)))
-
-
-def check_early_stopping(train_loss, val_loss, patience=30):
-    """
-    检查早停条件，连续 patience 个 epoch 没有有效果提升时停止训练。
-
-    参数:
-        train_loss (list): 训练损失的数组。
-        val_loss (list): 验证损失的数组。
-        patience (int): 连续没有提升的 epoch 数量，默认为 30。
-
-    返回:
-        stop_training (bool): 是否停止训练。
-    """
+def check_early_stopping(val_loss, patience=30):
     if len(val_loss) <= patience:
-        return False  # 如果验证损失数组长度不足 patience，则继续训练
-    
-    best_val_loss = min(val_loss[:-patience])  # 最佳验证损失，不考虑最近 patience 个 epoch
+        return False
+    best_val_loss = min(val_loss[:-patience])
     if min(val_loss) >= best_val_loss:
-        return True  # 如果最小验证损失不再改善，则停止训练
-
-    return False  # 其他情况继续训练
+        return True 
+    return False 
 
 optimizer = torch.optim.Adam(net.parameters(), lr=1e-3, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
 
@@ -248,9 +154,10 @@ for epoch in range(current_epoch, epochs+1):
     current_epoch += 1
     # 每过 30 个 epoch 保存一次模型
     if epoch % 30 == 0:
-        torch.save(net.state_dict(), './dd-net-{}.pth'.format(epoch))
-    if check_early_stopping(losses, val_losses, 100):
-        print("连续100 epoch 没有任何提升，退出")
+        print('保存模型中')
+        torch.save(net.state_dict(), './dd-net-{}-{}-{.6f}-{.6f}-{.6f}.pth'.format(epoch, net.__class__.__name__, train_loss, v_loss, time.time()))
+    if check_early_stopping(val_losses, 30):
+        print("连续 30 epoch 没有任何提升，退出")
         torch.save(net.state_dict(), './dd-net-ended.pth')
         break
         

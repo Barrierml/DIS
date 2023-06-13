@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .models.ddnet import DD_Net_RC
+from .models.ddnet import DD_Net_Fuse, DD_Net_Single, DD_Net_RC
 import torch.nn.functional as F
 import os
 from PIL import Image
@@ -91,11 +91,6 @@ train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=8, shuffle=
 val_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-VD/im', '/root/DIS/DIS5K/DIS-VD/gt', image_transform, gt_transform, name='val')
 val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
 
-# 测试集
-# test_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-TE1/im', '/root/DIS/DIS5K/DIS-TE1/gt', image_transform, gt_transform, name='test')
-# test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=8, shuffle=True)
-
-
 # 训练
 def train(net, train_loader, optimizer, epoch):
     net.train()
@@ -154,11 +149,31 @@ for epoch in range(current_epoch, epochs+1):
     current_epoch += 1
     # 每过 30 个 epoch 保存一次模型
     if epoch % 30 == 0:
+        print('保存模型中')
         torch.save(net.state_dict(), './dd-net-{}-{}-{.6f}-{.6f}-{.6f}.pth'.format(epoch, net.__class__.__name__, train_loss, v_loss, time.time()))
-    if check_early_stopping(val_losses, 100):
-        print("连续100 epoch 没有任何提升，退出")
+    if check_early_stopping(val_losses, 30):
+        print("连续 30 epoch 没有任何提升，退出")
         torch.save(net.state_dict(), './dd-net-ended.pth')
         break
         
 torch.save(net.state_dict(), './dd-net-current3.pth')
 # test(net, test_loader)
+
+# 测试
+def test(net, test_loader):
+    net.eval()
+    loss_sum = 0
+    for j, (img, gt) in enumerate(test_loader):
+        img = img.cuda()
+        gt = gt.cuda()
+        pred = net(img)
+        loss = net.loss(pred, gt)
+        loss_sum += loss.item()
+    print('test loss: {}'.format(loss_sum / len(test_loader)))
+    return loss_sum / len(test_loader)
+
+
+# 测试集
+test_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-TE/im', '/root/DIS/DIS5K/DIS-TE/gt', image_transform, gt_transform, name='test')
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
+test(net, test_loader)
