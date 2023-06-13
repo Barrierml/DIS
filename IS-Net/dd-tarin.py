@@ -84,11 +84,11 @@ gt_transform = transforms.Compose([
 ])
 
 # 加载数据集
-train_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-TR/im', '/root/DIS/DIS5K/DIS-TR/gt', image_transform, gt_transform, name='train')
+train_dataset = Image_Dataset('/root/DIS/ay-item-data/train/im', '/root/DIS/ay-item-data/train/gt', image_transform, gt_transform, name='train')
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=10, shuffle=True)
 
 # 验证集
-val_dataset = Image_Dataset('/root/DIS/DIS5K/DIS-VD/im', '/root/DIS/DIS5K/DIS-VD/gt', image_transform, gt_transform, name='val')
+val_dataset = Image_Dataset('/root/DIS/ay-item-data/val/im', '/root/DIS/ay-item-data/val/gt', image_transform, gt_transform, name='val')
 val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
 
 # 训练
