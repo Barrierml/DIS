@@ -278,7 +278,6 @@ class GOSDatasetCache(Dataset):
         for i, im_path in tqdm(enumerate(self.dataset["im_path"]), total=len(self.dataset["im_path"])):
 
             im_id = cached_dataset["im_name"][i]
-            print("im_path: ", im_path)
             im = im_reader(im_path)
             im, im_shp = im_preprocess(im,self.cache_size)
             im_cache_file = os.path.join(cache_folder,self.dataset["data_name"][i]+"_"+im_id + "_im.pt")

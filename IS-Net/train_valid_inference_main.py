@@ -661,15 +661,15 @@ if __name__ == "__main__":
                  "cache_dir":"../DIS5K-Cache/DIS-TE4"}
     ### test your own dataset
     dataset_demo = {"name": "ay-data",
-                 "im_dir": "/root/DIS/ay-item-data/train/im",
-                 "gt_dir": "/root/DIS/ay-item-data/train/gt",
+                 "im_dir": "/root/data/train",
+                 "gt_dir": "/root/data/train_mask",
                  "im_ext": ".jpg",
                  "gt_ext": ".png",
                  "cache_dir":"/root/autodl-tmp/cache/train"}
     
     dataset_val_demo = {"name": "ay-data",
-                 "im_dir": "/root/DIS/ay-item-data/val/im",
-                 "gt_dir": "/root/DIS/ay-item-data/val/gt",
+                 "im_dir": "/root/data/val",
+                 "gt_dir": "/root/data/val_mask",
                  "im_ext": ".jpg",
                  "gt_ext": ".png",
                  "cache_dir":"/root/autodl-tmp/cache/val"}
@@ -692,13 +692,13 @@ if __name__ == "__main__":
     if hypar["mode"] == "train":
         hypar["valid_out_dir"] = "" ## for "train" model leave it as "", for "valid"("inference") mode: set it according to your local directory
         hypar["model_path"] ="../saved_models" ## model weights saving (or restoring) path
-        hypar["restore_model"] = "isnet.pth" ## name of the segmentation model weights .pth for resume training process from last stop or for the inferencing
+        hypar["restore_model"] = "" ## name of the segmentation model weights .pth for resume training process from last stop or for the inferencing
         hypar["start_ite"] = 0 ## start iteration for the training, can be changed to match the restored training process
         hypar["gt_encoder_model"] = ""
     else: ## configure the segmentation output path and the to-be-used model weights path
         hypar["valid_out_dir"] = "../your-results/"##"../DIS5K-Results-test" ## output inferenced segmentation maps into this fold
         hypar["model_path"] = "../saved_models" ## load trained weights from this path
-        hypar["restore_model"] = "isnet.pth"##"isnet.pth" ## name of the to-be-loaded weights
+        hypar["restore_model"] = ""##"isnet.pth" ## name of the to-be-loaded weights
 
     # if hypar["restore_model"]!="":
     #     hypar["start_ite"] = int(hypar["restore_model"].split("_")[2])
@@ -710,13 +710,13 @@ if __name__ == "__main__":
     ## -- 2.3. cache data spatial size --
     ## To handle large size input images, which take a lot of time for loading in training,
     #  we introduce the cache mechanism for pre-convering and resizing the jpg and png images into .pt file
-    hypar["cache_size"] = [1024, 1024] ## cached input spatial resolution, can be configured into different size
+    hypar["cache_size"] = [768, 768] ## cached input spatial resolution, can be configured into different size
     hypar["cache_boost_train"] = False ## "True" or "False", indicates wheather to load all the training datasets into RAM, True will greatly speed the training process while requires more RAM
     hypar["cache_boost_valid"] = False ## "True" or "False", indicates wheather to load all the validation datasets into RAM, True will greatly speed the training process while requires more RAM
 
     ## --- 2.4. data augmentation parameters ---
-    hypar["input_size"] = [1024, 1024] ## mdoel input spatial size, usually use the same value hypar["cache_size"], which means we don't further resize the images
-    hypar["crop_size"] = [1024, 1024] ## random crop size from the input, it is usually set as smaller than hypar["cache_size"], e.g., [920,920] for data augmentation
+    hypar["input_size"] = [768, 768] ## mdoel input spatial size, usually use the same value hypar["cache_size"], which means we don't further resize the images
+    hypar["crop_size"] = [768, 768] ## random crop size from the input, it is usually set as smaller than hypar["cache_size"], e.g., [920,920] for data augmentation
     hypar["random_flip_h"] = 1 ## horizontal flip, currently hard coded in the dataloader and it is not in use
     hypar["random_flip_v"] = 0 ## vertical flip , currently not in use
 
@@ -724,9 +724,9 @@ if __name__ == "__main__":
     print("building model...")
     hypar["model"] = RISNetDIS() #U2NETFASTFEATURESUP()
     hypar["early_stop"] = 20 ## stop the training when no improvement in the past 20 validation periods, smaller numbers can be used here e.g., 5 or 10.
-    hypar["model_save_fre"] = 2000 ## valid and save model weights every 2000 iterations
+    hypar["model_save_fre"] = 4000 ## valid and save model weights every 2000 iterations
 
-    hypar["batch_size_train"] = 8 ## batch size for training
+    hypar["batch_size_train"] = 15 ## batch size for training
     hypar["batch_size_valid"] = 1 ## batch size for validation and inferencing
     print("batch size: ", hypar["batch_size_train"])
 
